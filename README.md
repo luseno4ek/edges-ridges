@@ -9,3 +9,5 @@
 ### Пример работы
 
 ![Исходное изображение (сосуды глазного дна)](https://github.com/luseno4ek/edges-ridges/blob/9771bb2e4cf49f57c497c71ed39e0337f93addaf/in2.bmp "Vessels")
+
+![Результат выделения хребтовых структур](https://github.com/luseno4ek/edges-ridges/blob/2617c11ea356304fb26e85edf026c2a651085b5e/myves.bmp "MyVessels")
