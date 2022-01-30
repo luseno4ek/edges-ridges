@@ -8,4 +8,4 @@
 
 ### Пример работы
 
-![Исходное изображение (сосуды глазного дна)](/Users/luseno4ek/Documents/Универ/3курс/MMIP/MMIP_task3/in2.bmp "Vessels")
+![Исходное изображение (сосуды глазного дна)](https://github.com/luseno4ek/edges-ridges/blob/9771bb2e4cf49f57c497c71ed39e0337f93addaf/in2.bmp "Vessels")
