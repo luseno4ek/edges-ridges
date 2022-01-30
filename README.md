@@ -8,8 +8,11 @@
 
 ### Пример работы
 <figure>
+   <figcaption>Исходное изображение (сосуды глазного дна)</figcaption>
   <img src="https://github.com/luseno4ek/edges-ridges/blob/9771bb2e4cf49f57c497c71ed39e0337f93addaf/in2.bmp" alt="Исходное изображение (сосуды глазного дна)" width="250"/>
-  <figcaption>Исходное изображение (сосуды глазного дна)</figcaption>
+</figure>
+<figure>
+   <figcaption>Результат выделения хребтовых структур</figcaption>
+ <img src="https://github.com/luseno4ek/edges-ridges/blob/2617c11ea356304fb26e85edf026c2a651085b5e/myves.bmp" alt="Результат выделения хребтовых структур" width="250"/>
 </figure>
 
-<img src="https://github.com/luseno4ek/edges-ridges/blob/2617c11ea356304fb26e85edf026c2a651085b5e/myves.bmp" alt="Результат выделения хребтовых структур" width="250" title="Результат выделения хребтовых структур"/>
