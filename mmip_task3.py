@@ -4,34 +4,30 @@ from skimage import io
 import numpy as np
 from numpy import linalg as LA
 from sys import argv
+from math import ceil
 
-def myconvolve(img, kernel):
-    # calc the size of the array of submatracies
-    sub_shape = tuple(np.subtract(img.shape, kernel.shape) + 1)
+def myconvolve(img, kernel, rad):
+    new_im = np.zeros(img.shape)
+    big_image = np.pad(img, pad_width=rad, mode='edge')
+    for i in range(rad, rad + len(img)):
+        for j in range(rad, rad + len(img[0])):
+            g = big_image[i - rad: i + rad + 1, j - rad: j + rad + 1]
+            new_im[i - rad][j - rad] = np.sum(kernel * g)
 
-    # alias for the function
-    strd = np.lib.stride_tricks.as_strided
-
-    # make an array of submatracies
-    submatrices = strd(img,kernel.shape + sub_shape,img.strides * 2)
-
-    # sum the submatraces and kernel
-    convolved_matrix = np.einsum('ij,ijkl->kl', kernel, submatrices)
-
-    return convolved_matrix
+    return new_im
 
 
 def Gauss_gradient(sigma):
     # sigma --> int
     s = sigma
-    sigma = int(np.around(sigma))
+    sigma = int(ceil(3 * sigma))
     
     # fill the matrix with algebraic calculated derivatives of 2D-Gauss function
     Gauss_x = np.array([np.array([ -1 * x * np.exp(-(x*x + y*y)/ (2 * s*s))
-                for y in range(-3*sigma, 3*sigma+1)]) for x in range(-3*sigma, 3*sigma+1)])
+                for y in range(-sigma, sigma+1)]) for x in range(-sigma, sigma+1)])
 
     Gauss_y = np.array([np.array([ - 1  * y * np.exp(-(x*x + y*y)/ (2 *s*s))
-                for y in range(-3*sigma, 3*sigma+1)]) for x in range(-3*sigma, 3*sigma+1)])
+                for y in range(-sigma, sigma+1)]) for x in range(-sigma, sigma+1)])
 
     return Gauss_x, Gauss_y
 
@@ -41,14 +37,11 @@ def gradient_magnitude(image, sigma):
     Gauss_x, Gauss_y = Gauss_gradient(sigma)
 
     # sigma --> int
-    sigma = int(np.around(sigma))
+    sigma = int(ceil(3 * sigma))
     
-    # extend image in order to work with borders
-    big_image = np.pad(image, pad_width=3*sigma, mode='edge')
-
     # convolve extemded image with Gauss derivatives
-    img_x = myconvolve(big_image, Gauss_x)
-    img_y = myconvolve(big_image, Gauss_y)
+    img_x = myconvolve(image, Gauss_x, sigma)
+    img_y = myconvolve(image, Gauss_y, sigma)
 
     # calc gradient magnitude 
     gradient_magnitude = np.hypot(img_x, img_y)
@@ -64,9 +57,6 @@ def gradient_magnitude(image, sigma):
 def non_max_suppression(image, sigma):
     # get gradient magnitude and convolved images 
     GM, img_x, img_y = gradient_magnitude(image, sigma)
-
-    # sigma --> int
-    sigma = int(np.around(sigma))
     
     # calc gradient direction 
     GD = np.arctan2(img_y, img_x)
@@ -110,9 +100,6 @@ def non_max_suppression(image, sigma):
 def canny_edge_detector(image, sigma, thresholds):
     # get image with edges from NMS
     nms_image = non_max_suppression(image, sigma)
-
-    # sigma --> int
-    sigma = int(np.around(sigma))
     
     # set params
     high = float(thresholds[0]) * 255
@@ -130,21 +117,35 @@ def canny_edge_detector(image, sigma, thresholds):
     ### second step of threshold ###
 
     # extend the image in order to work with borders
-    big_image = np.pad(nms_image, pad_width=2, mode='edge')
+    big_image = np.pad(nms_image, pad_width=2, mode='constant')
     
     # prepare base for the result image
     canny_im = nms_image.copy()
 
-    # for every pixel in image calculate: ... 
-    for x in range(2, canny_im.shape[0] + 2):
-        for y in range(2, canny_im.shape[1]+ 2):
-            # find 'middle' pixels
-            if big_image[x,y] == 127:
-                # take 3x3 area around found pixel
-                curr_fold = big_image[x-1:x+2, y-1:y+2]
-                # if any strong pixels (255) in the area => our pixel is strong (set 255)
-                # else => our pixel is weak => suppress it (set 0)
-                canny_im[x-2,y-2] = 255 if np.any(curr_fold == 255) else 0
+    count = 0
+    # while 'middle' pixels exists do: ...
+    while np.any(canny_im == 127):
+        if count == np.count_nonzero(canny_im == 127):
+            # if there are no new strong pixels => all middle pixels are considered 
+            # non strong and supressed to 0
+            canny_im[canny_im == 127] = 0
+            break
+        count = np.count_nonzero(canny_im == 127)
+        # for every pixel in image calculate: ... 
+        for x in range(2, canny_im.shape[0] + 2):
+            for y in range(2, canny_im.shape[1]+ 2):
+                # find 'middle' pixels
+                if big_image[x,y] == 127:
+                    # take 3x3 area around found pixel
+                    curr_fold = big_image[x-1:x+2, y-1:y+2]
+                    # if any strong pixels (255) in the area => our pixel is strong (set 255)
+                    # else => our pixel is weak => suppress it (set 0)
+                    canny_im[x-2,y-2] = 255 if np.any(curr_fold == 255) else \
+                                        127 if np.count_nonzero(curr_fold == 127) > 1 else 0
+                    # also must correct big_image value in order to take correct curr_fold area 
+                    # for the next 'middle' pixel 
+                    big_image[x,y] = 255 if np.any(curr_fold == 255) else \
+                                     127 if np.count_nonzero(curr_fold == 127) > 1 else 0
 
     # return result image for canny algorithm 
     return canny_im
@@ -162,18 +163,15 @@ def Gauss_sec_der(sigma):
 
 def get_eig(image, sigma):
     # s = sigma --> int
-    s = int(np.around(sigma))
-
-    # extend image in order to work with borders
-    big_image = np.pad(image, pad_width=3*s, mode='edge')
+    s = int(ceil(3 * sigma))
 
     # get Gauss second derivatives 
     Gauss_x_x, Gauss_x_y, Gauss_y_y = Gauss_sec_der(sigma)
 
     # convolve image with Gauss second derivatives
-    I_xx = myconvolve(big_image, Gauss_x_x)
-    I_xy = myconvolve(big_image, Gauss_x_y) 
-    I_yy = myconvolve(big_image, Gauss_y_y)
+    I_xx = myconvolve(image, Gauss_x_x, s)
+    I_xy = myconvolve(image, Gauss_x_y, s) 
+    I_yy = myconvolve(image, Gauss_y_y, s)
 
     # empty matrixes for hessian eigen values(w) and eigen vectors(v)
     hessian_eig_w = np.empty(image.shape)
@@ -232,9 +230,9 @@ def vessels(image):
     ridges = np.empty(image.shape)
 
     # get 3 ridge images with different sigma
-    nonmax2 = eig_nonmax_suppression(image, 2.2)
-    nonmax3 = eig_nonmax_suppression(image, 3.1)
-    nonmax4 = eig_nonmax_suppression(image, 4.0)
+    nonmax2 = eig_nonmax_suppression(image, 2)
+    nonmax3 = eig_nonmax_suppression(image, 3)
+    nonmax4 = eig_nonmax_suppression(image, 4)
 
     # result image = unity of images with diff. sigma
     for x in range(image.shape[0]):
@@ -264,4 +262,5 @@ else:
     else:
         result_image = canny_edge_detector(image, sigma, params[1:])
 
+result_image = np.round(result_image).clip(0, 255)
 io.imsave(output_file, result_image.astype('uint8'))
